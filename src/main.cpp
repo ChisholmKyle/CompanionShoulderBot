@@ -120,55 +120,55 @@ Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver();
 
 const uint8_t servos_list[NUM_SERVOS] = {SERVO_ID_SHOULDER_ROTATE, SERVO_ID_SHOULDER_RAISE, SERVO_ID_ELBOW, SERVO_ID_WRIST, SERVO_ID_EYE};
 
-constexpr int command_zero[NUM_SERVOS] = {0, 10, 0, 0, 0};
+constexpr int command_zero[NUM_SERVOS] = {0, 10, 10, 0, 0};
 
 constexpr int sequence_wiggle_length = 2;
 constexpr SequenceTarget sequence_wiggle[2] = {
     {.speed_scale = 0.5,
      .duration = 1500,
-     .target = {20, 70, -70, 0, 60}},
+     .target = {20, 60, -70, -30, 60}},
     {.speed_scale = 0.5,
      .duration = 2000,
-     .target = {-20, 20, -20, 10, -20}}};
+     .target = {-20, 40, -30, -20, -20}}};
 
 constexpr int sequence_intimidate_length = 2;
 constexpr SequenceTarget sequence_intimidate[2] = {
     {.speed_scale = 1.0,
      .duration = 1000,
-     .target = {-5, 40, -60, 20, -10}},
+     .target = {-5, 50, -50, -20, -10}},
     {.speed_scale = 1.0,
      .duration = 1000,
-     .target = {5, 70, -80, 20, 10}}};
+     .target = {5, 60, -60, -10, 10}}};
 
 constexpr int sequence_wobble_length = 3;
 constexpr SequenceTarget sequence_wobble[3] = {
     {.speed_scale = 1.0,
      .duration = 1000,
-     .target = {15, 60, -90, 10, 5}},
+     .target = {15, 60, -70, -20, 5}},
     {.speed_scale = 0.7,
      .duration = 2000,
-     .target = {-20, 60, -70, 20, 15}},
+     .target = {-20, 50, -60, -30, 15}},
     {.speed_scale = 0.8,
      .duration = 1000,
-     .target = {5, 60, -90, 10, -10}}};
+     .target = {5, 55, -70, -30, -10}}};
 
 constexpr int sequence_fwd_length = 1;
 constexpr SequenceTarget sequence_fwd[1] = {
     {.speed_scale = 0.7,
      .duration = 2000,
-     .target = {0, 60, -90, 20, 0}}};
+     .target = {0, 60, -80, -20, 0}}};
 
 constexpr int sequence_right_length = 1;
 constexpr SequenceTarget sequence_right[1] = {
     {.speed_scale = 0.7,
      .duration = 2000,
-     .target = {10, 60, -90, 20, 50}}};
+     .target = {10, 60, -80, -30, 50}}};
 
 constexpr int sequence_left_length = 1;
 constexpr SequenceTarget sequence_left[1] = {
     {.speed_scale = 0.7,
      .duration = 1000,
-     .target = {-10, 60, -90, -30, -50}}};
+     .target = {-10, 60, -80, -30, -50}}};
 
 constexpr int sequence_zero_length = 1;
 constexpr SequenceTarget sequence_zero[1] = {
