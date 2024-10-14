@@ -31,11 +31,11 @@
 #define SERVO_ANGLE_MIN -105.0
 #define SERVO_ANGLE_MAX 105.0
 // trajectory parameters
-#define SERVO_ACC_MAX 300.0
+#define SERVO_ACC_MAX 200.0
 #define SERVO_VEL_MAX 90.0
 // timings
 #define SERVO_FREQ 50            // Analog servos run at ~50 Hz updates
-#define SERVO_CONTROL_STEP_MS 40 // Controller running at 25Hz
+#define SERVO_CONTROL_STEP_MS 20 // Controller running at 50Hz
 // number of servos
 #define NUM_SERVOS 5
 // IDs of each servo
@@ -73,6 +73,7 @@ enum JoyQuadrant
 struct TrajectoryParameters
 {
     float step_size;
+    float speed_gain;
     float max_velocity;
     float max_acceleration;
     float min_displacement;
@@ -91,8 +92,13 @@ enum SequenceMode
 {
     STOP,
     ZERO,
+    FORWARD,
+    RIGHT,
+    LEFT,
     WIGGLE,
-    INTIMIDATE
+    WOBBLE,
+    INTIMIDATE,
+    HEAD
 };
 
 struct SequenceTarget
@@ -109,48 +115,66 @@ struct SequenceState
     int index;
 };
 
-// function declarations - servo control
-void set_servo_angle(uint8_t servo_id, int angle);
-Trajectory smooth_goto(const Trajectory &prev, const TrajectoryParameters &params, const float target);
-SequenceState change_mode(const SequenceMode mode, const SequenceTarget sequence[], const uint32_t now,
-                          int target[], float &velocity);
-void update_mode_sequence(const SequenceTarget sequence[], const int sequence_count, const uint32_t now,
-                          SequenceState &state, int target[], float &velocity);
-
-// function declarations - servo control
-JoyQuadrant xy_to_quadrant(int x, int y);
-JoyQuadrant get_joy_quadrant(const JoyConfig &config_x, const JoyConfig &config_y, int val_x, int val_y);
-
 // objects - servo
 Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver();
 
 const uint8_t servos_list[NUM_SERVOS] = {SERVO_ID_SHOULDER_ROTATE, SERVO_ID_SHOULDER_RAISE, SERVO_ID_ELBOW, SERVO_ID_WRIST, SERVO_ID_EYE};
 
-const int command_zero[NUM_SERVOS] = {0, 0, 0, 90, 0};
+constexpr int command_zero[NUM_SERVOS] = {0, 10, 0, 0, 0};
 
-const int sequence_wiggle_count = 2;
-const SequenceTarget sequence_wiggle[2] = {
+constexpr int sequence_wiggle_length = 2;
+constexpr SequenceTarget sequence_wiggle[2] = {
+    {.speed_scale = 0.5,
+     .duration = 1500,
+     .target = {20, 70, -70, 0, 60}},
     {.speed_scale = 0.5,
      .duration = 2000,
-     .target = {20, -30, 40, 100, 10}},
-    {.speed_scale = 0.5,
-     .duration = 3000,
-     .target = {-20, 0, -40, 70, -10}}};
+     .target = {-20, 20, -20, 10, -20}}};
 
-const int sequence_intimidate_count = 2;
-const SequenceTarget sequence_intimidate[2] = {
+constexpr int sequence_intimidate_length = 2;
+constexpr SequenceTarget sequence_intimidate[2] = {
     {.speed_scale = 1.0,
+     .duration = 1000,
+     .target = {-5, 40, -60, 20, -10}},
+    {.speed_scale = 1.0,
+     .duration = 1000,
+     .target = {5, 70, -80, 20, 10}}};
+
+constexpr int sequence_wobble_length = 3;
+constexpr SequenceTarget sequence_wobble[3] = {
+    {.speed_scale = 1.0,
+     .duration = 1000,
+     .target = {15, 60, -90, 10, 5}},
+    {.speed_scale = 0.7,
      .duration = 2000,
-     .target = {-5, -40, -40, 90, 0}},
-    {.speed_scale = 1.0,
-     .duration = 3000,
-     .target = {5, -10, -10, 45, 10}}};
+     .target = {-20, 60, -70, 20, 15}},
+    {.speed_scale = 0.8,
+     .duration = 1000,
+     .target = {5, 60, -90, 10, -10}}};
 
-const int sequence_zero_count = 1;
-const SequenceTarget sequence_zero[1] = {
+constexpr int sequence_fwd_length = 1;
+constexpr SequenceTarget sequence_fwd[1] = {
+    {.speed_scale = 0.7,
+     .duration = 2000,
+     .target = {0, 60, -90, 20, 0}}};
+
+constexpr int sequence_right_length = 1;
+constexpr SequenceTarget sequence_right[1] = {
+    {.speed_scale = 0.7,
+     .duration = 2000,
+     .target = {10, 60, -90, 20, 50}}};
+
+constexpr int sequence_left_length = 1;
+constexpr SequenceTarget sequence_left[1] = {
+    {.speed_scale = 0.7,
+     .duration = 1000,
+     .target = {-10, 60, -90, -30, -50}}};
+
+constexpr int sequence_zero_length = 1;
+constexpr SequenceTarget sequence_zero[1] = {
     {.speed_scale = 1.0,
      .duration = 10000,
-     .target = {0, 0, 0, 90, 0}}};
+     .target = {0, 10, 0, 0, 0}}};
 
 SequenceState servo_state = {};
 Trajectory servo_traj[NUM_SERVOS] = {};
@@ -159,6 +183,17 @@ uint32_t timing_prev = 0;
 
 JoyConfig joy_x = {};
 JoyConfig joy_y = {};
+
+// function declarations - servo control
+void set_servo_angle(uint8_t servo_id, int angle);
+Trajectory smooth_goto(const Trajectory &prev, const TrajectoryParameters &params, const float target);
+SequenceState change_mode(const SequenceMode mode, const SequenceTarget sequence[], const uint32_t now,
+                          int target[], float &velocity);
+void update_mode_sequence(const SequenceTarget sequence[], const int sequence_length, const uint32_t now,
+                          SequenceState &state, int target[], float &velocity);
+// function declarations - joystick
+JoyQuadrant xy_to_quadrant(int x, int y);
+JoyQuadrant get_joy_quadrant(const JoyConfig &config_x, const JoyConfig &config_y, int val_x, int val_y);
 
 void setup()
 {
@@ -198,10 +233,11 @@ void setup()
     pwm.setOscillatorFrequency(27000000);
     pwm.setPWMFreq(SERVO_FREQ); // Analog servos run at ~50 Hz updates
 
-    delay(10);
+    delay(50);
 
     // trajectory parameters
     servo_traj_params.step_size = static_cast<float>(SERVO_CONTROL_STEP_MS) / 1000.0;
+    servo_traj_params.speed_gain = 10.0;
     servo_traj_params.max_velocity = SERVO_VEL_MAX;
     servo_traj_params.max_acceleration = SERVO_ACC_MAX;
     servo_traj_params.min_displacement = 0.2;
@@ -209,7 +245,7 @@ void setup()
     servo_traj_params.min_acceleration = 0.5;
 
     // initialize trajectory stopped at zero position
-    servo_state.mode = STOP;
+    servo_state.mode = ZERO;
     for (int k = 0; k < NUM_SERVOS; k++)
     {
         servo_traj[k].position = command_zero[k];
@@ -222,7 +258,7 @@ void setup()
 
 void loop()
 {
-    static int target[NUM_SERVOS] = {0, 0, 0, 0, 0};
+    static int target[NUM_SERVOS] = {0, 10, 0, 0, 0};
 
     const uint32_t now = millis();
     const uint32_t elapsed = (now - timing_prev);
@@ -246,11 +282,35 @@ void loop()
             }
             Serial.println("STOP");
         }
-        else if ((quadrant == NORTH) && (servo_state.mode != WIGGLE))
+        else if ((quadrant == NORTH) && (servo_state.mode != FORWARD))
+        {
+            // Change mode to fwd
+            servo_state = change_mode(FORWARD, sequence_fwd, now, target, servo_traj_params.max_velocity);
+            Serial.println("FORWARD");
+        }
+        else if ((quadrant == NORTH_EAST) && (servo_state.mode != RIGHT))
+        {
+            // Change mode to right
+            servo_state = change_mode(RIGHT, sequence_right, now, target, servo_traj_params.max_velocity);
+            Serial.println("RIGHT");
+        }
+        else if ((quadrant == NORTH_WEST) && (servo_state.mode != LEFT))
+        {
+            // Change mode to left
+            servo_state = change_mode(LEFT, sequence_left, now, target, servo_traj_params.max_velocity);
+            Serial.println("LEFT");
+        }
+        else if ((quadrant == EAST) && (servo_state.mode != WIGGLE))
         {
             // Change mode to wiggle
             servo_state = change_mode(WIGGLE, sequence_wiggle, now, target, servo_traj_params.max_velocity);
             Serial.println("WIGGLE");
+        }
+        else if ((quadrant == WEST) && (servo_state.mode != WOBBLE))
+        {
+            // Change mode to wobble
+            servo_state = change_mode(WOBBLE, sequence_wobble, now, target, servo_traj_params.max_velocity);
+            Serial.println("WOBBLE");
         }
         else if ((quadrant == SOUTH) && (servo_state.mode != INTIMIDATE))
         {
@@ -258,27 +318,41 @@ void loop()
             servo_state = change_mode(INTIMIDATE, sequence_intimidate, now, target, servo_traj_params.max_velocity);
             Serial.println("INTIMIDATE");
         }
-        else if ((quadrant == EAST) && (servo_state.mode != ZERO))
-        {
-            // Change mode to zero
-            servo_state = change_mode(ZERO, sequence_zero, now, target, servo_traj_params.max_velocity);
-            Serial.println("ZERO");
-        }
 
         // run sequence
-        if (servo_state.mode == WIGGLE)
+        if (servo_state.mode == FORWARD)
         {
-            update_mode_sequence(sequence_wiggle, sequence_wiggle_count, now,
+            update_mode_sequence(sequence_fwd, sequence_fwd_length, now,
+                                 servo_state, target, servo_traj_params.max_velocity);
+        }
+        else if (servo_state.mode == LEFT)
+        {
+            update_mode_sequence(sequence_left, sequence_left_length, now,
+                                 servo_state, target, servo_traj_params.max_velocity);
+        }
+        else if (servo_state.mode == RIGHT)
+        {
+            update_mode_sequence(sequence_right, sequence_right_length, now,
+                                 servo_state, target, servo_traj_params.max_velocity);
+        }
+        else if (servo_state.mode == WIGGLE)
+        {
+            update_mode_sequence(sequence_wiggle, sequence_wiggle_length, now,
+                                 servo_state, target, servo_traj_params.max_velocity);
+        }
+        else if (servo_state.mode == WOBBLE)
+        {
+            update_mode_sequence(sequence_wobble, sequence_wobble_length, now,
                                  servo_state, target, servo_traj_params.max_velocity);
         }
         else if (servo_state.mode == INTIMIDATE)
         {
-            update_mode_sequence(sequence_intimidate, sequence_intimidate_count, now,
+            update_mode_sequence(sequence_intimidate, sequence_intimidate_length, now,
                                  servo_state, target, servo_traj_params.max_velocity);
         }
         else if (servo_state.mode == ZERO)
         {
-            update_mode_sequence(sequence_zero, sequence_zero_count, now,
+            update_mode_sequence(sequence_zero, sequence_zero_length, now,
                                  servo_state, target, servo_traj_params.max_velocity);
         }
 
@@ -288,6 +362,12 @@ void loop()
             servo_traj[k] = smooth_goto(servo_traj[k], servo_traj_params, target[k]);
             set_servo_angle(servos_list[k], servo_traj[k].position);
         }
+
+        // Serial.print(static_cast<int>(servo_traj[2].position));
+        // Serial.print(",");
+        // Serial.print(static_cast<int>(servo_traj[2].velocity));
+        // Serial.print(",");
+        // Serial.println(static_cast<int>(servo_traj[2].acceleration));
     }
 }
 
@@ -314,7 +394,7 @@ Trajectory smooth_goto(const Trajectory &prev, const TrajectoryParameters &param
     else
     {
         // desired velocity to reach target
-        cmd.velocity = displacement / params.step_size;
+        cmd.velocity = params.speed_gain * displacement;
         if (fabs(cmd.velocity) < params.min_velocity)
         {
             cmd.velocity = 0.0;
@@ -368,7 +448,7 @@ SequenceState change_mode(const SequenceMode mode, const SequenceTarget sequence
     return state;
 }
 
-void update_mode_sequence(const SequenceTarget sequence[], const int sequence_count, const uint32_t now,
+void update_mode_sequence(const SequenceTarget sequence[], const int sequence_length, const uint32_t now,
                           SequenceState &state, int target[], float &velocity)
 {
     if ((now - state.start) >= sequence[state.index].duration)
@@ -376,7 +456,7 @@ void update_mode_sequence(const SequenceTarget sequence[], const int sequence_co
         // advance to next item in sequence
         state.start = now;
         state.index++;
-        if (state.index >= sequence_count)
+        if (state.index >= sequence_length)
         {
             state.index = 0;
         }
