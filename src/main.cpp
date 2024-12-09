@@ -37,13 +37,11 @@
 #define SERVO_FREQ 50            // Analog servos run at ~50 Hz updates
 #define SERVO_CONTROL_STEP_MS 20 // Controller running at 50Hz
 // number of servos
-#define NUM_SERVOS 5
+#define NUM_SERVOS 3
 // IDs of each servo
-#define SERVO_ID_SHOULDER_ROTATE 0
-#define SERVO_ID_SHOULDER_RAISE 1
-#define SERVO_ID_ELBOW 2
-#define SERVO_ID_WRIST 3
-#define SERVO_ID_EYE 4
+#define SERVO_ID_BOW 0
+#define SERVO_ID_NOD 1
+#define SERVO_ID_ROTATE 2
 // joystick config
 #define JOY_X A0
 #define JOY_Y A1
@@ -118,63 +116,63 @@ struct SequenceState
 // objects - servo
 Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver();
 
-const uint8_t servos_list[NUM_SERVOS] = {SERVO_ID_SHOULDER_ROTATE, SERVO_ID_SHOULDER_RAISE, SERVO_ID_ELBOW, SERVO_ID_WRIST, SERVO_ID_EYE};
+const uint8_t servos_list[NUM_SERVOS] = {SERVO_ID_BOW, SERVO_ID_NOD, SERVO_ID_ROTATE};
 
-constexpr int command_zero[NUM_SERVOS] = {0, 10, 10, 0, 0};
+constexpr int command_zero[NUM_SERVOS] = {10, 0, 0};
 
 constexpr int sequence_wiggle_length = 2;
 constexpr SequenceTarget sequence_wiggle[2] = {
     {.speed_scale = 0.5,
      .duration = 1500,
-     .target = {20, 60, -70, -30, 60}},
+     .target = {-40, -30, 60}},
     {.speed_scale = 0.5,
      .duration = 2000,
-     .target = {-20, 40, -30, -20, -20}}};
+     .target = {0, -20, -20}}};
 
 constexpr int sequence_intimidate_length = 2;
 constexpr SequenceTarget sequence_intimidate[2] = {
     {.speed_scale = 1.0,
      .duration = 1000,
-     .target = {-5, 50, -50, -20, -10}},
+     .target = {-20, -20, -10}},
     {.speed_scale = 1.0,
      .duration = 1000,
-     .target = {5, 60, -60, -10, 10}}};
+     .target = {-30, -10, 10}}};
 
 constexpr int sequence_wobble_length = 3;
 constexpr SequenceTarget sequence_wobble[3] = {
     {.speed_scale = 1.0,
      .duration = 1000,
-     .target = {15, 60, -70, -20, 5}},
+     .target = {-40, -20, 5}},
     {.speed_scale = 0.7,
      .duration = 2000,
-     .target = {-20, 50, -60, -30, 15}},
+     .target = {-30, -30, 15}},
     {.speed_scale = 0.8,
      .duration = 1000,
-     .target = {5, 55, -70, -30, -10}}};
+     .target = {-40, -30, -10}}};
 
 constexpr int sequence_fwd_length = 1;
 constexpr SequenceTarget sequence_fwd[1] = {
     {.speed_scale = 0.7,
      .duration = 2000,
-     .target = {0, 60, -80, -20, 0}}};
+     .target = {-40, -20, 0}}};
 
 constexpr int sequence_right_length = 1;
 constexpr SequenceTarget sequence_right[1] = {
     {.speed_scale = 0.7,
      .duration = 2000,
-     .target = {10, 60, -80, -30, 50}}};
+     .target = {-40, -30, 50}}};
 
 constexpr int sequence_left_length = 1;
 constexpr SequenceTarget sequence_left[1] = {
     {.speed_scale = 0.7,
      .duration = 1000,
-     .target = {-10, 60, -80, -30, -50}}};
+     .target = {-40, -30, -50}}};
 
 constexpr int sequence_zero_length = 1;
 constexpr SequenceTarget sequence_zero[1] = {
     {.speed_scale = 1.0,
      .duration = 10000,
-     .target = {0, 10, 0, 0, 0}}};
+     .target = {0, 0, 0}}};
 
 SequenceState servo_state = {};
 Trajectory servo_traj[NUM_SERVOS] = {};
@@ -198,7 +196,8 @@ JoyQuadrant get_joy_quadrant(const JoyConfig &config_x, const JoyConfig &config_
 void setup()
 {
     Serial.begin(9600);
-    // Serial.println("8 channel Servo test!");
+
+    // Joystick setup
 
     pinMode(JOY_SWITCH, INPUT);
     digitalWrite(JOY_SWITCH, HIGH);
@@ -213,6 +212,7 @@ void setup()
     joy_y.min = 0;
     joy_y.scale = 1.0;
 
+    // Servo setup
     pwm.begin();
     /*
      * In theory the internal oscillator (clock) is 25MHz but it really isn't
@@ -236,7 +236,7 @@ void setup()
     delay(50);
 
     // trajectory parameters
-    servo_traj_params.step_size = static_cast<float>(SERVO_CONTROL_STEP_MS) / 1000.0;
+    servo_traj_params.step_size = SERVO_CONTROL_STEP_MS / 1000.0;
     servo_traj_params.speed_gain = 10.0;
     servo_traj_params.max_velocity = SERVO_VEL_MAX;
     servo_traj_params.max_acceleration = SERVO_ACC_MAX;
@@ -258,7 +258,7 @@ void setup()
 
 void loop()
 {
-    static int target[NUM_SERVOS] = {0, 10, 0, 0, 0};
+    static int target[NUM_SERVOS] = {0, 0, 0};
 
     const uint32_t now = millis();
     const uint32_t elapsed = (now - timing_prev);
@@ -362,12 +362,6 @@ void loop()
             servo_traj[k] = smooth_goto(servo_traj[k], servo_traj_params, target[k]);
             set_servo_angle(servos_list[k], servo_traj[k].position);
         }
-
-        // Serial.print(static_cast<int>(servo_traj[2].position));
-        // Serial.print(",");
-        // Serial.print(static_cast<int>(servo_traj[2].velocity));
-        // Serial.print(",");
-        // Serial.println(static_cast<int>(servo_traj[2].acceleration));
     }
 }
 
