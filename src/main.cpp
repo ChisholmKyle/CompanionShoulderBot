@@ -1,35 +1,14 @@
 #include <Arduino.h>
 
-/***************************************************
-  This is an example for our Adafruit 16-channel PWM & Servo driver
-  Servo test - this will drive 8 servos, one after the other on the
-  first 8 pins of the PCA9685
-
-  Pick one up today in the adafruit shop!
-  ------> http://www.adafruit.com/products/815
-
-  These drivers use I2C to communicate, 2 pins are required to
-  interface.
-
-  Adafruit invests time and resources providing this open source code,
-  please support Adafruit and open-source hardware by purchasing
-  products from Adafruit!
-
-  Written by Limor Fried/Ladyada for Adafruit Industries.
-  BSD license, all text above must be included in any redistribution
- ****************************************************/
-
 #include <Wire.h>
+// Adafruit servo driver: https://github.com/adafruit/Adafruit-PWM-Servo-Driver-Library
 #include <Adafruit_PWMServoDriver.h>
 
-// Depending on your servo make, the pulse width min and max may vary, you
-// want these to be as small/large as possible without hitting the hard stop
-// for max range. You'll have to tweak them as necessary to match the servos you
-// have!
+// Servo parameters
 #define SERVO_PULSE_MIN 100 // This is the 'minimum' pulse length count (out of 4096)
 #define SERVO_PULSE_MAX 530 // This is the 'maximum' pulse length count (out of 4096)
-#define SERVO_ANGLE_MIN -105.0
-#define SERVO_ANGLE_MAX 105.0
+#define SERVO_ANGLE_MIN -105.0 // Minimum angle in degrees
+#define SERVO_ANGLE_MAX 105.0 // Maximum angle in degrees
 // trajectory parameters
 #define SERVO_ACC_MAX 200.0
 #define SERVO_VEL_MAX 90.0
@@ -42,7 +21,7 @@
 #define SERVO_ID_BOW 0
 #define SERVO_ID_NOD 1
 #define SERVO_ID_ROTATE 2
-// joystick config
+// joystick configuration
 #define JOY_X A0
 #define JOY_Y A1
 #define JOY_SWITCH 9
@@ -95,8 +74,7 @@ enum SequenceMode
     LEFT,
     WIGGLE,
     WOBBLE,
-    INTIMIDATE,
-    HEAD
+    INTIMIDATE
 };
 
 struct SequenceTarget
@@ -214,22 +192,7 @@ void setup()
 
     // Servo setup
     pwm.begin();
-    /*
-     * In theory the internal oscillator (clock) is 25MHz but it really isn't
-     * that precise. You can 'calibrate' this by tweaking this number until
-     * you get the PWM update frequency you're expecting!
-     * The int.osc. for the PCA9685 chip is a range between about 23-27MHz and
-     * is used for calculating things like writeMicroseconds()
-     * Analog servos run at ~50 Hz updates, It is importaint to use an
-     * oscilloscope in setting the int.osc frequency for the I2C PCA9685 chip.
-     * 1) Attach the oscilloscope to one of the PWM signal pins and ground on
-     *    the I2C PCA9685 chip you are setting the value for.
-     * 2) Adjust setOscillatorFrequency() until the PWM update frequency is the
-     *    expected value (50Hz for most ESCs)
-     * Setting the value here is specific to each individual I2C PCA9685 chip and
-     * affects the calculations for the PWM update frequency.
-     * Failure to correctly set the int.osc value will cause unexpected PWM results
-     */
+    // for servo example see https://github.com/adafruit/Adafruit-PWM-Servo-Driver-Library/blob/master/examples/servo/servo.ino
     pwm.setOscillatorFrequency(27000000);
     pwm.setPWMFreq(SERVO_FREQ); // Analog servos run at ~50 Hz updates
 
@@ -269,6 +232,7 @@ void loop()
         const JoyQuadrant quadrant = get_joy_quadrant(joy_x, joy_y, analogRead(JOY_X), analogRead(JOY_Y));
         const bool button_down = (digitalRead(JOY_SWITCH) == LOW);
 
+        // Update mode
         if (button_down && (servo_state.mode != STOP))
         {
             // Change mode to stop
